@@ -37,9 +37,10 @@ We start off by downloading the data from The Washing Post, on on homicides in 5
 ```{r, error = TRUE download raw github data}
 homicide_df =
   tibble(
-  read.csv(url("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")))
-homicide_df = janitor::clean_names(homicide_df)
+  read.csv(url("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv"))) %>% 
+  janitor::clean_names() 
 skimr::skim(homicide_df)
+  
 homicide_df$city_state= 
   paste(homicide_df$city,",", homicide_df$state)
 
@@ -52,7 +53,7 @@ homicide_df =
     disposition == 'Open/No arrest' ~ "unsolved",
     disposition == 'Closed by arrest' ~ "solved"))   %>%
   select(city_state, resolved)%>%
-  filter(city_state != "Tulsa_AL")
+  filter(city_state != "Tulsa , AL")
 
 homicide_status_df = 
   homicide_df %>%
@@ -167,23 +168,60 @@ sim_ttest = function(n = 30, mu, sigma = 5) {
   
   sim_data %>%
   t.test() %>%
-  broom::tidy() 
-# %>% select(estimate, p.value)
+  broom::tidy() %>% 
+  select(estimate, p.value)
 }
 ```
 We then ran the simulation 5000 times for μ={1,2,3,4,5,6} and saved to sim_results dataframe
 
 ``` {r sim_results df}
-sim_results = tibble(mu = c(0,1,2,3,4,5,6)) %>% 
+sim_results = tibble(true_mu = c(0,1,2,3,4,5,6)) %>% 
   mutate(
-    output_list = map(.x = mu, ~rerun(5000, sim_ttest(mu = .x))),
+    output_list = map(.x = true_mu, ~rerun(5000, sim_ttest(mu = .x))),
     output_df = map(output_list, bind_rows)) %>% 
   select(-output_list) %>% 
   unnest(output_df)
 
 head(sim_results)
-
-
 ```
-
+Now let's make a plot showing the proportion of times the null was rejected. 
+```{r plot of null_reject}
+sim_results_reject_null =
+  sim_results %>% 
+    mutate(reject = case_when(
+      p.value < 0.05 ~ 1,
+      p.value >= 0.05 ~ 0))%>%  
+  group_by(true_mu) 
+sim_results_reject_null %>%
+  summarise(power = mean(reject)) %>%  #proportion of time null is rejected
+  ggplot(aes(x = true_mu, y = power)) +
+  geom_point(alpha = .5) +
+  geom_line(alpha =.5, color = "coral") +
+  labs(title = "Power vs. Effect Size", x = "True value of mu", y="power")
   
+```
+Based on the graph, we can see that as the true value of mu increases, power increases as well. This indicates that rejecting the null increases as the effect size increases. 
+
+Now, let's make another plot (graph 1) showing the average estimate of mu on the y axis and the true value of μ on the x axis. And make another graph (graph 2) showing the average estimate of μ̂ only in samples for which the null was rejected on the y axis and the true value of μ on the x axis. 
+
+```{r average estimate of mu vs. true mu}
+plot_1 = 
+  sim_results_reject_null %>%
+summarize(mean_mu = mean(estimate))%>%
+  ggplot(aes(x = true_mu, y = mean_mu))+
+  geom_point()+
+  geom_line(alpha =.5, color = "coral")+
+  labs(title = "Mean Estimate vs True Mu", x = "True value of Mu", y = "Mean Estimate")
+
+plot_2 =
+  sim_results_reject_null %>%
+  filter(reject == 1) %>%
+  summarize(mean_mu = mean(estimate))%>%
+  ggplot(aes(x = true_mu, y = mean_mu))+
+  geom_point()+
+  geom_line(alpha =.5, color = "turquoise")+
+  labs(title = "Mean Estimate_rejected H0 vs. True Mu", x = "True value of Mu", y = "Mean Estimate of reject null")
+
+plot_1 + plot_2
+```
+In graph 2, the sample mean estimate of mu where null was rejected is not approximately equal to the true value of mu, because as the power decreases the mean estimates get further away from the true mean when the power increases. 
