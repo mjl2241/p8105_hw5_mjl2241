@@ -11,6 +11,7 @@ library(tidyverse)
 library (patchwork)
 library(readr)
 library(broom)
+library(viridis)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -117,7 +118,7 @@ study_df =
 ```
 
 ```{r, error = TRUE}
-problem2_df = 
+study_df = 
   tibble(
     filename = list.files("./data")
   ) %>% 
@@ -130,10 +131,59 @@ problem2_df =
   select(arm, subject_id,week_1:week_8)%>%
   pivot_longer(
     week_1:week_8,
-    names_to = "week_number",
+    names_to = "week",
     values_to = "value")%>%
   mutate(
     
     subject_id = as.character(subject_id)
   )
 ```
+we then made a spaghetti plot
+
+``` {r, error = TRUE spaghetti plot}
+study_df %>% 
+  ggplot(aes(x = week, y = value, group = subject_id, color = subject_id)) +
+  geom_line() + 
+  theme_bw () +
+  facet_grid(~arm) +
+  labs(
+    title = "value over time by groups",
+    x = "Week",
+    y = "Value"
+  ) + 
+  viridis::scale_color_viridis(discrete = TRUE)
+```
+Based on the graphs above, participants in the experiment arm had increasing positive values as the week progress, on average. However, participants from the control arm had values that did not significantly increase as the weeks progressed and showed irregular change over time.
+
+### Problem 3
+First, we created the sim_regression function
+```{r message = FALSE, warning = FALSE}
+set.seed(1)
+
+sim_ttest = function(n = 30, mu, sigma = 5) {
+  sim_data = tibble (
+  x = rnorm(n, mean = mu, sd = sigma)
+  )
+  
+  sim_data %>%
+  t.test() %>%
+  broom::tidy() 
+# %>% select(estimate, p.value)
+}
+```
+We then ran the simulation 5000 times for μ={1,2,3,4,5,6} and saved to sim_results dataframe
+
+``` {r sim_results df}
+sim_results = tibble(mu = c(0,1,2,3,4,5,6)) %>% 
+  mutate(
+    output_list = map(.x = mu, ~rerun(5000, sim_ttest(mu = .x))),
+    output_df = map(output_list, bind_rows)) %>% 
+  select(-output_list) %>% 
+  unnest(output_df)
+
+head(sim_results)
+
+
+```
+
+  
