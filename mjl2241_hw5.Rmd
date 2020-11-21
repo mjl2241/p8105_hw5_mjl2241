@@ -34,7 +34,7 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ### Problem 1.
 
 We start off by downloading the data from The Washing Post, on on homicides in 50 large U.S. cities via Github. After taking a look at the dataset, we also created city_state variable and resolved_status variable to count the total number of homicides and unsolved homicides. 
-```{r, error = TRUE download raw github data}
+```{r, error = TRUE}
 homicide_df =
   tibble(
   read.csv(url("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv"))) %>% 
@@ -66,7 +66,7 @@ homicide_status_df =
 In this dataset, there is a total of 52,179 unique rows 12 columns. Some of the key variables are disposition, city, state, gender, victims age, victims race, victims name, and the date of the incident. The dataset is mostly complete and do not have missing values in key variables, except for 60 rows in latitude and longitude. 
 
 Using the prop.test on Baltimore, MA
-``` {r, error = TRUE baltimore data}
+``` {r baltimore data, error = TRUE}
 prop.test(
   homicide_status_df %>% filter(city_state == "Baltimore , MD") %>% pull(unsolved_hom), 
   homicide_status_df %>% filter(city_state == "Baltimore , MD") %>% pull(total_hom)) %>% 
@@ -74,7 +74,7 @@ prop.test(
 ```
 Applying prop.test on all the cities
 
-``` {r, error = TRUE prop.test on cities}
+``` {r prop.test on cities, error = TRUE}
 results_df = 
   homicide_status_df %>% 
   mutate(
@@ -87,7 +87,7 @@ results_df =
 ```
 Then we finally created a plot that shows the estimates and CIs for each city.
 
-``` {r, error = TRUE plot for results_df}
+``` {r plot for results_df, error = TRUE}
 results_df %>% 
   mutate(city_state = fct_reorder(city_state, estimate)) %>% 
   ggplot(aes(x = city_state, y = estimate)) +
@@ -98,7 +98,7 @@ results_df %>%
 
 ### problem 2
 
-``` {r, error = TRUE read and tidy data}
+``` {r read and tidy data, error = TRUE}
 files = list.files("./data", pattern = ".csv", all.files = FALSE, 
 full.names = FALSE)
 
@@ -141,7 +141,7 @@ study_df =
 ```
 we then made a spaghetti plot
 
-``` {r, error = TRUE spaghetti plot}
+``` {r spaghetti plot, error = TRUE }
 study_df %>% 
   ggplot(aes(x = week, y = value, group = subject_id, color = subject_id)) +
   geom_line() + 
