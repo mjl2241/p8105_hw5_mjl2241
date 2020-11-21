@@ -1,0 +1,98 @@
+---
+title: "mjl2241_hw5"
+author: "Michelle Lee"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: github_document
+---
+This is my solution to HW5. 
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library (patchwork)
+library(readr)
+library(broom)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+### Problem 1.
+
+We start off by downloading the data from The Washing Post, on on homicides in 50 large U.S. cities via Github. After taking a look at the dataset, we also created city_state variable and resolved_status variable to count the total number of homicides and unsolved homicides. 
+```{r download raw github data}
+homicide_df =
+  tibble(
+  read.csv(url("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")))
+homicide_df = janitor::clean_names(homicide_df)
+skimr::skim(homicide_df)
+homicide_df$city_state= 
+  paste(homicide_df$city,",", homicide_df$state)
+
+#create resolved variable;
+homicide_df = 
+  
+  homicide_df %>%
+  mutate(resolved = case_when(
+    disposition == 'Closed without arrest' ~   "unsolved",
+    disposition == 'Open/No arrest' ~ "unsolved",
+    disposition == 'Closed by arrest' ~ "solved"))   %>%
+  select(city_state, resolved)%>%
+  filter(city_state != "Tulsa_AL")
+
+homicide_status_df = 
+  homicide_df %>%
+  group_by(city_state) %>%
+  summarize(
+    total_hom = n(),
+    unsolved_hom = sum(resolved == "unsolved")
+  )
+```
+In this dataset, there is a total of 52,179 unique rows 12 columns. Some of the key variables are disposition, city, state, gender, victims age, victims race, victims name, and the date of the incident. The dataset is mostly complete and do not have missing values in key variables, except for 60 rows in latitude and longitude. 
+
+Using the prop.test on Baltimore, MA
+``` {r baltimore data}
+prop.test(
+  homicide_status_df %>% filter(city_state == "Baltimore , MD") %>% pull(unsolved_hom), 
+  homicide_status_df %>% filter(city_state == "Baltimore , MD") %>% pull(total_hom)) %>% 
+  broom::tidy()
+```
+Applying prop.test on all the cities
+
+``` {r prop.test on cities}
+results_df = 
+  homicide_status_df %>% 
+  mutate(
+    prop_tests = map2(.x = unsolved_hom, .y = total_hom, ~prop.test(x = .x, n = .y)),
+    tidy_tests = map(.x = prop_tests, ~broom::tidy(.x))
+  ) %>% 
+  select(-prop_tests) %>% 
+  unnest(tidy_tests) %>% 
+  select(city_state, estimate, conf.low,conf.high)
+```
+Then we finally created a plot that shows the estimates and CIs for each city.
+
+``` {r plot for results_df}
+results_df %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+### problem 2
+
